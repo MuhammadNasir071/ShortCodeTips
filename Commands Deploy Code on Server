@@ -1,0 +1,137 @@
+This is not a package - it's a loyaltyappl Laravel project that you should use as a starter boilerplate, and then add your own custom functionality.
+
+##### Server Deployment Scripts
+
+-- Server Commands --
+sudo apt update
+sudo apt upgrade
+sudo apt install apache2
+sudo apt install mysql-server
+sudo mysql_secure_installation  // Run this command after mysql commands at root ("Nasir=> after this cmmad" no no y y y y) 
+
+-- MySQL Commands --
+sudo mysql;
+SELECT user,authentication_string,plugin,host FROM mysql.user;
+ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'CwA123[]ASAwe@#23f@#$2loyaltyapp';
+FLUSH PRIVILEGES;
+create database loyaltyapp; // Now RUN secure command at root
+Ctrl+Z (Press)
+
+FYI: sudo mysql -u root -p {database name} (Use this command to re-enter in mysql>) 
+
+-- PHP Commands --
+sudo apt update
+sudo apt-add-repository ppa:ondrej/php
+sudo apt update
+sudo apt install -y php7.2 php7.2-cli php7.2-common php7.2-gettext php7.2-mysql php7.2-dom php7.2-simplexml php7.2-xml php7.2-curl php7.2-gd php7.2-imagick php7.2-json php7.2-mbstring php7.2-zip
+sudo apt install git
+sudo apt install composer
+
+-- Phpmyadmin --
+sudo apt install phpmyadmin
+sudo nano /etc/apache2/apache2.conf
+Include /etc/phpmyadmin/apache.conf [put this in the first line]  Nasir=> (ctrl+o then enter) then (ctrl+x)
+sudo service apache2 restart
+
+
+-- PHP Version Issue -- Commands
+sudo apt-get remove --purge php8.*
+sudo apt-get install php7.2
+---------------------------------------------------------------------------------------------------------
+##### Make before vhost
+
+/var/www/ cd /etc/apache2/sites-availabe
+
+`sudo nano loyalty-app.yity.dev.conf`
+
+
+
+
+-- Apache Useloyaltyapp Commands --
+
+##### All comonds again after vHost 
+sudo a2enmod rewrite
+sudo service apache2 restart
+sudo a2ensite loyalty-app.yity.dev.conf
+sudo service apache2 restart
+
+
+
+<VirtualHost *:80>
+  ServerAdmin webmaster@localhost
+  ServerName loyalty-app.yity.dev
+  ServerAlias loyalty-app.yity.dev
+  DocumentRoot /var/www/loyaltyapp/public
+  
+  ErrorLog ${APACHE_LOG_DIR}/error.log
+  CustomLog ${APACHE_LOG_DIR}/access.log combined
+  
+  <Directory /var/www/loyaltyapp/public>
+          Options Indexes FollowSymLinks MultiViews
+          AllowOverride All
+          Require all granted
+  </Directory>
+</VirtualHost>
+
+
+
+
+##### Application Setup
+- cd /var/www/
+- Clone the repository with `git clone`
+### for Rename folder 
+`sudo mv wholescale-app loyaltyapp`
+- cd loyaltyapp
+- sudo git checkout nonshopify (Non Shopify App)
+- Install `redis` server using any help loyaltyapp article
+- Copy `.env.example` file to `.env` and edit database credentials there
+- Run `composer install`
+- Run `php artisan key:generate`
+- Run `php artisan migrate --seed` (it has some seeded data - see below)
+- Run `sudo chmod -R 777 storage/` on root folder
+- Run `sudo chmod -R 777 backups/` in database folder
+- Run `sudo mkdir product_imports` then `sudo chmod -R 777 product_imports` in public folder (Non Shopify App)
+- Create a folder in public folder `sudo mkdir qrcodes`. Run `sudo chmod -R 777 qrcodes/` on it (Non Shopify App)
+- Open php.ini file in editor `sudo nano /etc/php/7.2/apache2/php.ini` and change the following settings (Non Shopify App)
+  - `upload_max_filesize = 20M`
+  - `post_max_size = 20M`
+  - `max_execution_time = 300`
+  - `max_input_time = 300`
+- Configure AWS Bucket settings so uploading of files can be done properly
+- That's it: launch the main URL and login with default credentials `mailto:admin@admin.com` - `password`
+- Two cron jobs are provided with this system. You need to add the following Cron entries to your server.
+command `sudo crontab -e`
+    - `* * * * * php /var/www/loyaltyapp/artisan schedule:run >> /dev/null 2>&1`
+- If you are setting up redis queue don't forgot to create `storage/logs/supervisor` folder and assign permissions appropriately.
+
+##### Shopify Setup Files
+Please check `Shopify` folder for more details.
+
+###### Useloyaltyapp commands for Supervisor
+
+- Run `cd storage/logs  sudo mkdir supervisor` "Make Supervisor directory in Storage logs"
+cd storage/logs   `sudo chmod -R 777 supervisor/`
+sudo apt-get purge supervisor
+sudo apt-get install supervisor
+sudo service supervisor start
+sudo service supervisor restart
+sudo service supervisor stop
+sudo supervisorctl reread
+sudo supervisorctl update
+sudo supervisorctl start <job_name>:*
+
+
+###### Sample Worker File
+
+This should be saved in `/etc/supervisor/conf.d/<job_name>.conf`
+
+
+[program:loyalty_<job_name>]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/loyaltyapp/artisan queue:work database --sleep=3 --tries=3 --daemon --queue=high,default,low
+autostart=true
+autorestart=true
+user=root
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/var/www/loyaltyapp/storage/logs/supervisor/queue.log
